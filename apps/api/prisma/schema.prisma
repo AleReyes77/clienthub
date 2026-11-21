@@ -1,0 +1,138 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+  CLIENT
+}
+
+enum ProjectStatus {
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  ARCHIVED
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  sessions     Session[]
+  memberships  Membership[]
+
+  @@map("users")
+}
+
+/// Server-side session. Only a SHA-256 hash of the cookie token is stored.
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userAgent String?
+  ip        String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model Organization {
+  id          String       @id @default(cuid())
+  name        String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  memberships Membership[]
+  invitations Invitation[]
+  projects    Project[]
+
+  @@map("organizations")
+}
+
+model Membership {
+  id             String       @id @default(cuid())
+  userId         String
+  organizationId String
+  role           Role
+  createdAt      DateTime     @default(now())
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  clientProjects Project[]    @relation("ProjectClient")
+  assignedTasks  Task[]       @relation("TaskAssignee")
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+  @@map("memberships")
+}
+
+/// Pending invitation. Only a SHA-256 hash of the invitation token is stored.
+model Invitation {
+  id             String       @id @default(cuid())
+  organizationId String
+  email          String
+  role           Role
+  tokenHash      String       @unique
+  invitedById    String
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, email])
+  @@map("invitations")
+}
+
+model Project {
+  id                 String        @id @default(cuid())
+  organizationId     String
+  name               String
+  description        String?
+  status             ProjectStatus @default(ACTIVE)
+  clientMembershipId String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  organization       Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client             Membership?   @relation("ProjectClient", fields: [clientMembershipId], references: [id], onDelete: SetNull)
+  tasks              Task[]
+
+  @@index([organizationId])
+  @@index([clientMembershipId])
+  @@map("projects")
+}
+
+model Task {
+  id                   String      @id @default(cuid())
+  projectId            String
+  title                String
+  description          String?
+  status               TaskStatus  @default(TODO)
+  assigneeMembershipId String?
+  dueDate              DateTime?   @db.Date
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+  project              Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee             Membership? @relation("TaskAssignee", fields: [assigneeMembershipId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, status])
+  @@index([assigneeMembershipId])
+  @@map("tasks")
+}
