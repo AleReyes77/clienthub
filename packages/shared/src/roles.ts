@@ -22,6 +22,11 @@ export const PERMISSIONS = {
   "tasks:create": ["OWNER", "ADMIN", "MEMBER"],
   "tasks:update": ["OWNER", "ADMIN", "MEMBER"],
   "tasks:delete": ["OWNER", "ADMIN", "MEMBER"],
+  // Clients can share files (briefs, assets) on their own projects.
+  "files:upload": ["OWNER", "ADMIN", "MEMBER", "CLIENT"],
+  // Anyone can delete the files they uploaded; these roles can delete any file.
+  "files:deleteAny": ["OWNER", "ADMIN"],
+  "audit:read": ["OWNER", "ADMIN"],
 } as const satisfies Record<string, readonly Role[]>;
 
 export type Permission = keyof typeof PERMISSIONS;

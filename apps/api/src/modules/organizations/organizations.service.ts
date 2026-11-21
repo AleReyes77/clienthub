@@ -84,16 +84,23 @@ export function createOrganizationsService(prisma: PrismaClient) {
     },
 
     async acceptInvitation(
-      user: { id: string; email: string },
+      user: { id: string; email: string; emailVerified: boolean },
       token: string,
     ): Promise<OrganizationDto> {
       const invitation = await findValidInvitation(token);
 
-      // An invitation link only works for the email it was sent to.
+      // An invitation link only works for the email it was sent to...
       if (invitation.email !== user.email) {
         throw forbidden(
           "This invitation was sent to a different email address",
           "INVITATION_EMAIL_MISMATCH",
+        );
+      }
+      // ...and only once the user has proven they own that email.
+      if (!user.emailVerified) {
+        throw forbidden(
+          "Verify your email address before accepting invitations",
+          "EMAIL_NOT_VERIFIED",
         );
       }
 

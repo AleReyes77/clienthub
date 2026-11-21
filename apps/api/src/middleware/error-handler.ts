@@ -1,5 +1,6 @@
 import type { ApiErrorBody } from "@clienthub/shared";
 import type { ErrorRequestHandler, RequestHandler } from "express";
+import multer from "multer";
 import { AppError } from "../lib/errors.js";
 import type { Logger } from "../lib/logger.js";
 import { Prisma } from "../lib/prisma.js";
@@ -20,6 +21,14 @@ function toAppError(err: unknown): AppError | undefined {
     if (err.type === "entity.too.large") {
       return new AppError(413, "PAYLOAD_TOO_LARGE", "Request body is too large");
     }
+  }
+
+  // Errors thrown by multer while reading a file upload.
+  if (err instanceof multer.MulterError) {
+    if (err.code === "LIMIT_FILE_SIZE") {
+      return new AppError(413, "FILE_TOO_LARGE", "The file is larger than the allowed size");
+    }
+    return new AppError(400, "INVALID_UPLOAD", "Send exactly one file in the `file` field");
   }
 
   if (err instanceof Prisma.PrismaClientKnownRequestError) {

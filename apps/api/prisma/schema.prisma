@@ -27,15 +27,23 @@ enum TaskStatus {
   DONE
 }
 
+enum EmailTokenType {
+  VERIFY_EMAIL
+  PASSWORD_RESET
+}
+
 model User {
-  id           String       @id @default(cuid())
-  email        String       @unique
-  name         String
-  passwordHash String
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-  sessions     Session[]
-  memberships  Membership[]
+  id              String       @id @default(cuid())
+  email           String       @unique
+  name            String
+  passwordHash    String
+  emailVerifiedAt DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  sessions        Session[]
+  memberships     Membership[]
+  emailTokens     EmailToken[]
+  auditLogs       AuditLog[]
 
   @@map("users")
 }
@@ -64,20 +72,22 @@ model Organization {
   memberships Membership[]
   invitations Invitation[]
   projects    Project[]
+  auditLogs   AuditLog[]
 
   @@map("organizations")
 }
 
 model Membership {
-  id             String       @id @default(cuid())
+  id             String        @id @default(cuid())
   userId         String
   organizationId String
   role           Role
-  createdAt      DateTime     @default(now())
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  clientProjects Project[]    @relation("ProjectClient")
-  assignedTasks  Task[]       @relation("TaskAssignee")
+  createdAt      DateTime      @default(now())
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  clientProjects Project[]     @relation("ProjectClient")
+  assignedTasks  Task[]        @relation("TaskAssignee")
+  uploadedFiles  ProjectFile[]
 
   @@unique([userId, organizationId])
   @@index([organizationId])
@@ -113,6 +123,7 @@ model Project {
   organization       Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   client             Membership?   @relation("ProjectClient", fields: [clientMembershipId], references: [id], onDelete: SetNull)
   tasks              Task[]
+  files              ProjectFile[]
 
   @@index([organizationId])
   @@index([clientMembershipId])
@@ -135,4 +146,54 @@ model Task {
   @@index([projectId, status])
   @@index([assigneeMembershipId])
   @@map("tasks")
+}
+
+/// Single-use token for email verification or password reset. Only a SHA-256 hash is stored.
+model EmailToken {
+  id        String         @id @default(cuid())
+  userId    String
+  type      EmailTokenType
+  tokenHash String         @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime       @default(now())
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+  @@map("email_tokens")
+}
+
+/// Append-only record of important actions inside an organization.
+model AuditLog {
+  id             String       @id @default(cuid())
+  organizationId String
+  actorUserId    String?
+  action         String
+  targetType     String?
+  targetId       String?
+  metadata       Json?
+  ip             String?
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actor          User?        @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@map("audit_logs")
+}
+
+/// File attached to a project. The bytes live in object storage under `storageKey`.
+model ProjectFile {
+  id                     String      @id @default(cuid())
+  projectId              String
+  uploadedByMembershipId String?
+  name                   String
+  storageKey             String      @unique
+  contentType            String
+  size                   Int
+  createdAt              DateTime    @default(now())
+  project                Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploadedBy             Membership? @relation(fields: [uploadedByMembershipId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@map("project_files")
 }

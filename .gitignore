@@ -32,3 +32,7 @@ coverage/
 
 # Local Claude Code settings
 .claude/
+
+# Local file uploads (development)
+uploads/
+uploads-test/

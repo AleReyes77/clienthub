@@ -152,9 +152,15 @@ export function createProjectsService(prisma: PrismaClient) {
       return get(membership, projectId);
     },
 
+    /** Returns the deleted project's name and the storage keys of its files, for cleanup. */
     async remove(membership: MembershipContext, projectId: string) {
-      await findVisible(membership, projectId);
+      const project = await findVisible(membership, projectId);
+      const files = await prisma.projectFile.findMany({
+        where: { projectId },
+        select: { storageKey: true },
+      });
       await prisma.project.delete({ where: { id: projectId } });
+      return { name: project.name, storageKeys: files.map((f) => f.storageKey) };
     },
   };
 }

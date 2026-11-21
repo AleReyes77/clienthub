@@ -45,7 +45,9 @@ async function main() {
       { name: "Sofía Morales", email: "owner@clienthub.test" },
       { name: "Diego Herrera", email: "member@clienthub.test" },
       { name: "Carla Méndez", email: "client@clienthub.test" },
-    ].map((user) => prisma.user.create({ data: { ...user, passwordHash } })),
+    ].map((user) =>
+      prisma.user.create({ data: { ...user, passwordHash, emailVerifiedAt: new Date() } }),
+    ),
   );
   if (!owner || !member || !client) throw new Error("Failed to create demo users");
 

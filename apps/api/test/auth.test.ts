@@ -6,7 +6,7 @@ describe.skipIf(!testDatabaseUrl)("auth", () => {
   const ctx = createTestContext();
 
   beforeEach(() => ctx.resetDatabase());
-  afterAll(() => ctx.prisma.$disconnect());
+  afterAll(() => ctx.close());
 
   it("registers a user with an httpOnly SameSite session cookie", async () => {
     const res = await ctx
@@ -111,7 +111,7 @@ describe.skipIf(!testDatabaseUrl)("auth rate limiting", () => {
   const ctx = createTestContext({ RATE_LIMIT_AUTH_MAX: "3" });
 
   beforeEach(() => ctx.resetDatabase());
-  afterAll(() => ctx.prisma.$disconnect());
+  afterAll(() => ctx.close());
 
   it("returns 429 after too many login attempts", async () => {
     const attempt = () =>

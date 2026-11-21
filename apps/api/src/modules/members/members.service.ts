@@ -11,6 +11,7 @@ import type { z } from "zod";
 import { conflict, forbidden, notFound } from "../../lib/errors.js";
 import type { PrismaClient } from "../../lib/prisma.js";
 import { generateToken, hashToken } from "../../lib/tokens.js";
+import type { Notifier } from "../notifications/notifier.js";
 
 const INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -37,7 +38,7 @@ function toInvitationDto(invitation: {
   };
 }
 
-export function createMembersService(prisma: PrismaClient) {
+export function createMembersService(prisma: PrismaClient, notifier: Notifier) {
   /**
    * Note on "last owner" safety: members cannot change or remove themselves and only owners
    * can change other owners, so an organization can never be left without an owner.
@@ -45,7 +46,7 @@ export function createMembersService(prisma: PrismaClient) {
   async function findManageableTarget(actor: Actor, targetMembershipId: string, newRole?: Role) {
     const target = await prisma.membership.findFirst({
       where: { id: targetMembershipId, organizationId: actor.organizationId },
-      select: { id: true, role: true },
+      select: { id: true, role: true, user: { select: { email: true } } },
     });
     if (!target) throw notFound("Member");
 
@@ -80,14 +81,17 @@ export function createMembersService(prisma: PrismaClient) {
       }));
     },
 
+    /** Returns the previous role, for the audit log. */
     async updateRole(actor: Actor, targetMembershipId: string, role: Role) {
       const target = await findManageableTarget(actor, targetMembershipId, role);
       await prisma.membership.update({ where: { id: target.id }, data: { role } });
+      return { previousRole: target.role, email: target.user.email };
     },
 
     async remove(actor: Actor, targetMembershipId: string) {
       const target = await findManageableTarget(actor, targetMembershipId);
       await prisma.membership.delete({ where: { id: target.id } });
+      return { role: target.role, email: target.user.email };
     },
 
     async listInvitations(organizationId: string): Promise<InvitationDto[]> {
@@ -100,7 +104,7 @@ export function createMembersService(prisma: PrismaClient) {
 
     async invite(
       actor: Actor,
-      invitedByUserId: string,
+      inviter: { id: string; name: string },
       input: z.output<typeof createInvitationSchema>,
     ): Promise<CreatedInvitationDto> {
       const alreadyMember = await prisma.membership.findFirst({
@@ -122,19 +126,35 @@ export function createMembersService(prisma: PrismaClient) {
             email: input.email,
             role: input.role,
             tokenHash: hashToken(token),
-            invitedById: invitedByUserId,
+            invitedById: inviter.id,
             expiresAt: new Date(Date.now() + INVITATION_TTL_MS),
           },
         }),
       ]);
+
+      const organization = await prisma.organization.findUniqueOrThrow({
+        where: { id: actor.organizationId },
+        select: { name: true },
+      });
+      await notifier.invitation({
+        email: input.email,
+        role: input.role,
+        organizationName: organization.name,
+        inviterName: inviter.name,
+        token,
+      });
+
       return { ...toInvitationDto(invitation), token };
     },
 
     async revokeInvitation(organizationId: string, invitationId: string) {
-      const { count } = await prisma.invitation.deleteMany({
+      const invitation = await prisma.invitation.findFirst({
         where: { id: invitationId, organizationId, acceptedAt: null },
+        select: { id: true, email: true },
       });
-      if (count === 0) throw notFound("Invitation");
+      if (!invitation) throw notFound("Invitation");
+      await prisma.invitation.delete({ where: { id: invitation.id } });
+      return invitation;
     },
   };
 }

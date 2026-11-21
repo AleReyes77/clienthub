@@ -9,6 +9,11 @@ export interface UserDto {
   email: string;
 }
 
+/** The logged-in user, as returned by /auth/me, /auth/login and /auth/register. */
+export interface CurrentUserDto extends UserDto {
+  emailVerified: boolean;
+}
+
 export interface OrganizationDto {
   id: string;
   name: string;
@@ -64,6 +69,32 @@ export interface TaskDto {
   dueDate: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ProjectFileDto {
+  id: string;
+  name: string;
+  contentType: string;
+  size: number;
+  uploadedBy: MemberSummaryDto | null;
+  createdAt: string;
+}
+
+export interface AuditLogDto {
+  id: string;
+  /** For example "project.created" or "member.role_changed". */
+  action: string;
+  actor: { id: string; name: string } | null;
+  targetType: string | null;
+  targetId: string | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface AuditLogPageDto {
+  entries: AuditLogDto[];
+  /** Pass as `?cursor=` to get the next page; null when there are no more entries. */
+  nextCursor: string | null;
 }
 
 export interface ApiErrorBody {

@@ -51,7 +51,7 @@ describe.skipIf(!testDatabaseUrl)("authorization", () => {
     internalProjectId = internal.body.project.id;
   });
 
-  afterAll(() => ctx.prisma.$disconnect());
+  afterAll(() => ctx.close());
 
   it("requires a session", async () => {
     const res = await ctx.agent().get(`/api/v1/orgs/${orgId}/projects`);

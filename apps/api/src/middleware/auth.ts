@@ -15,12 +15,16 @@ export function loadSession(prisma: PrismaClient, config: Config): RequestHandle
       select: {
         id: true,
         expiresAt: true,
-        user: { select: { id: true, name: true, email: true } },
+        user: { select: { id: true, name: true, email: true, emailVerifiedAt: true } },
       },
     });
 
     if (session && session.expiresAt > new Date()) {
-      req.auth = { sessionId: session.id, user: session.user };
+      const { emailVerifiedAt, ...user } = session.user;
+      req.auth = {
+        sessionId: session.id,
+        user: { ...user, emailVerified: emailVerifiedAt !== null },
+      };
     }
     next();
   };

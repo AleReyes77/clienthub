@@ -4,13 +4,14 @@ import type { PrismaClient } from "../../lib/prisma.js";
 import { parse } from "../../lib/validate.js";
 import { getAuth } from "../../middleware/auth.js";
 import { getMembership } from "../../middleware/membership.js";
+import type { AuditService } from "../audit/audit.service.js";
 import { createOrganizationsService } from "./organizations.service.js";
 
 /**
  * Routes that are not scoped to one organization.
  * `getAuth()` throws a 401 when there is no session.
  */
-export function organizationsRouter(prisma: PrismaClient) {
+export function organizationsRouter(prisma: PrismaClient, audit: AuditService) {
   const router = Router();
   const organizations = createOrganizationsService(prisma);
 
@@ -21,7 +22,13 @@ export function organizationsRouter(prisma: PrismaClient) {
   router.post("/orgs", async (req, res) => {
     const { user } = getAuth(req);
     const { name } = parse(createOrganizationSchema, req.body);
-    res.status(201).json({ organization: await organizations.create(user.id, name) });
+    const organization = await organizations.create(user.id, name);
+    await audit.recordFromRequest(
+      req,
+      { action: "organization.created", targetType: "organization", targetId: organization.id },
+      organization.id,
+    );
+    res.status(201).json({ organization });
   });
 
   router.get("/invitations/:token", async (req, res) => {
@@ -30,6 +37,16 @@ export function organizationsRouter(prisma: PrismaClient) {
 
   router.post("/invitations/:token/accept", async (req, res) => {
     const organization = await organizations.acceptInvitation(getAuth(req).user, req.params.token);
+    await audit.recordFromRequest(
+      req,
+      {
+        action: "member.joined",
+        targetType: "membership",
+        targetId: organization.membershipId,
+        metadata: { role: organization.role },
+      },
+      organization.id,
+    );
     res.json({ organization });
   });
 

@@ -53,7 +53,7 @@ export function createTasksService(prisma: PrismaClient) {
     await projects.findVisible(membership, projectId);
     const task = await prisma.task.findFirst({
       where: { id: taskId, projectId },
-      select: { id: true },
+      select: { id: true, title: true, assigneeMembershipId: true },
     });
     if (!task) throw notFound("Task");
     return task;
@@ -101,8 +101,8 @@ export function createTasksService(prisma: PrismaClient) {
       projectId: string,
       taskId: string,
       input: z.output<typeof updateTaskSchema>,
-    ): Promise<TaskDto> {
-      await findTask(membership, projectId, taskId);
+    ): Promise<{ task: TaskDto; previousAssigneeId: string | null }> {
+      const previous = await findTask(membership, projectId, taskId);
       if (input.assigneeMembershipId) {
         await assertAssignable(membership.organizationId, input.assigneeMembershipId);
       }
@@ -121,12 +121,14 @@ export function createTasksService(prisma: PrismaClient) {
         },
         select: taskSelect,
       });
-      return toTaskDto(task);
+      return { task: toTaskDto(task), previousAssigneeId: previous.assigneeMembershipId };
     },
 
+    /** Returns the deleted task title, for the audit log. */
     async remove(membership: MembershipContext, projectId: string, taskId: string) {
-      await findTask(membership, projectId, taskId);
+      const task = await findTask(membership, projectId, taskId);
       await prisma.task.delete({ where: { id: taskId } });
+      return { title: task.title };
     },
   };
 }

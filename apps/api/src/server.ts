@@ -2,6 +2,7 @@ import { createApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { createLogger } from "./lib/logger.js";
 import { createPrismaClient } from "./lib/prisma.js";
+import { closeServices, createServices } from "./services.js";
 
 try {
   process.loadEnvFile();
@@ -12,7 +13,8 @@ try {
 const config = loadConfig();
 const logger = createLogger(config.LOG_LEVEL);
 const prisma = createPrismaClient(config.DATABASE_URL);
-const app = createApp({ config, prisma, logger });
+const services = createServices(config, logger);
+const app = createApp({ config, prisma, logger, services });
 
 const server = app.listen(config.PORT, () => {
   logger.info(`ClientHub API listening on http://localhost:${config.PORT}`);
@@ -21,6 +23,8 @@ const server = app.listen(config.PORT, () => {
 function shutdown(signal: string) {
   logger.info(`${signal} received, shutting down`);
   server.close(async () => {
+    // Let running jobs finish, then close connections.
+    await closeServices(services);
     await prisma.$disconnect();
     process.exit(0);
   });

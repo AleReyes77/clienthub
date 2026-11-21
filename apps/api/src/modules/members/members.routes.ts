@@ -4,12 +4,14 @@ import type { PrismaClient } from "../../lib/prisma.js";
 import { parse } from "../../lib/validate.js";
 import { getAuth } from "../../middleware/auth.js";
 import { authorize } from "../../middleware/membership.js";
+import type { AuditService } from "../audit/audit.service.js";
+import type { Notifier } from "../notifications/notifier.js";
 import { createMembersService } from "./members.service.js";
 
 /** Mounted under `/orgs/:orgId`. */
-export function membersRouter(prisma: PrismaClient) {
+export function membersRouter(prisma: PrismaClient, audit: AuditService, notifier: Notifier) {
   const router = Router();
-  const members = createMembersService(prisma);
+  const members = createMembersService(prisma, notifier);
 
   router.get("/members", async (req, res) => {
     const membership = authorize(req, "members:read");
@@ -19,13 +21,29 @@ export function membersRouter(prisma: PrismaClient) {
   router.patch("/members/:membershipId", async (req, res) => {
     const membership = authorize(req, "members:manage");
     const { role } = parse(updateMemberRoleSchema, req.body);
-    await members.updateRole(membership, req.params.membershipId, role);
+    const { previousRole, email } = await members.updateRole(
+      membership,
+      req.params.membershipId,
+      role,
+    );
+    await audit.recordFromRequest(req, {
+      action: "member.role_changed",
+      targetType: "membership",
+      targetId: req.params.membershipId,
+      metadata: { email, from: previousRole, to: role },
+    });
     res.status(204).end();
   });
 
   router.delete("/members/:membershipId", async (req, res) => {
     const membership = authorize(req, "members:manage");
-    await members.remove(membership, req.params.membershipId);
+    const removed = await members.remove(membership, req.params.membershipId);
+    await audit.recordFromRequest(req, {
+      action: "member.removed",
+      targetType: "membership",
+      targetId: req.params.membershipId,
+      metadata: removed,
+    });
     res.status(204).end();
   });
 
@@ -37,13 +55,28 @@ export function membersRouter(prisma: PrismaClient) {
   router.post("/invitations", async (req, res) => {
     const membership = authorize(req, "members:manage");
     const input = parse(createInvitationSchema, req.body);
-    const invitation = await members.invite(membership, getAuth(req).user.id, input);
+    const invitation = await members.invite(membership, getAuth(req).user, input);
+    await audit.recordFromRequest(req, {
+      action: "invitation.created",
+      targetType: "invitation",
+      targetId: invitation.id,
+      metadata: { email: invitation.email, role: invitation.role },
+    });
     res.status(201).json({ invitation });
   });
 
   router.delete("/invitations/:invitationId", async (req, res) => {
     const membership = authorize(req, "members:manage");
-    await members.revokeInvitation(membership.organizationId, req.params.invitationId);
+    const revoked = await members.revokeInvitation(
+      membership.organizationId,
+      req.params.invitationId,
+    );
+    await audit.recordFromRequest(req, {
+      action: "invitation.revoked",
+      targetType: "invitation",
+      targetId: revoked.id,
+      metadata: { email: revoked.email },
+    });
     res.status(204).end();
   });
 

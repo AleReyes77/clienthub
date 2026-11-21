@@ -42,6 +42,18 @@ export const loginSchema = z.object({
 });
 export type LoginInput = z.input<typeof loginSchema>;
 
+/** Tokens from email links (verify email, reset password). */
+const emailToken = z.string().min(20, "This link is not valid").max(200, "This link is not valid");
+
+export const verifyEmailSchema = z.object({ token: emailToken });
+export type VerifyEmailInput = z.input<typeof verifyEmailSchema>;
+
+export const forgotPasswordSchema = z.object({ email });
+export type ForgotPasswordInput = z.input<typeof forgotPasswordSchema>;
+
+export const resetPasswordSchema = z.object({ token: emailToken, password });
+export type ResetPasswordInput = z.input<typeof resetPasswordSchema>;
+
 // ── Organizations & members ─────────────────────────────────────────────
 
 export const createOrganizationSchema = z.object({

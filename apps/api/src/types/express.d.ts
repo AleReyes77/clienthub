@@ -6,7 +6,7 @@ declare global {
       /** Set by `loadSession` when the request carries a valid session cookie. */
       auth?: {
         sessionId: string;
-        user: { id: string; name: string; email: string };
+        user: { id: string; name: string; email: string; emailVerified: boolean };
       };
       /** Set by `requireMembership` on organization-scoped routes. */
       membership?: {
