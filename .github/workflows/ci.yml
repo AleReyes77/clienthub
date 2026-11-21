@@ -33,8 +33,26 @@ jobs:
           --health-timeout 5s
           --health-retries 10
 
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      # S3-compatible server used to test the S3 storage adapter.
+      s3:
+        image: adobe/s3mock:5.2.3
+        ports:
+          - 9090:9090
+
     env:
       TEST_DATABASE_URL: postgresql://clienthub:clienthub@localhost:5432/clienthub_test
+      TEST_REDIS_URL: redis://localhost:6379
+      TEST_S3_ENDPOINT: http://localhost:9090
 
     steps:
       - uses: actions/checkout@v5

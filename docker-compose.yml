@@ -1,5 +1,9 @@
 # Local infrastructure for development.
 # Start with: docker compose up -d
+#
+# - PostgreSQL: main database
+# - Redis:      background jobs (BullMQ) and shared rate limiting
+# - Mailpit:    catches every email; open http://localhost:8025 to read them
 services:
   postgres:
     image: postgres:17-alpine
@@ -17,6 +21,24 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - "1025:1025" # SMTP
+      - "8025:8025" # Web UI
 
 volumes:
   postgres-data:

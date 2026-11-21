@@ -18,24 +18,33 @@ Every error has the same shape:
 }
 ```
 
-| Status | Meaning                                                                                  |
-| ------ | ---------------------------------------------------------------------------------------- |
-| 400    | Invalid input (`VALIDATION_ERROR`, `INVALID_JSON`, `INVALID_CLIENT`, `INVALID_ASSIGNEE`) |
-| 401    | No valid session (`UNAUTHORIZED`) or wrong credentials (`INVALID_CREDENTIALS`)           |
-| 403    | Not allowed (`FORBIDDEN`, `CSRF_ORIGIN_MISMATCH`, `INVITATION_EMAIL_MISMATCH`)           |
-| 404    | Not found **or not visible to you** (`NOT_FOUND`)                                        |
-| 409    | Conflict (`EMAIL_TAKEN`, `ALREADY_MEMBER`)                                               |
-| 410    | Invitation used or expired                                                               |
-| 429    | Too many requests (`RATE_LIMITED`)                                                       |
+| Status | Meaning                                                                                                                                   |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| 400    | Invalid input (`VALIDATION_ERROR`, `INVALID_JSON`, `INVALID_CLIENT`, `INVALID_ASSIGNEE`, `INVALID_TOKEN`, `INVALID_UPLOAD`, `EMPTY_FILE`) |
+| 401    | No valid session (`UNAUTHORIZED`) or wrong credentials (`INVALID_CREDENTIALS`)                                                            |
+| 403    | Not allowed (`FORBIDDEN`, `CSRF_ORIGIN_MISMATCH`, `INVITATION_EMAIL_MISMATCH`, `EMAIL_NOT_VERIFIED`)                                      |
+| 404    | Not found **or not visible to you** (`NOT_FOUND`)                                                                                         |
+| 409    | Conflict (`EMAIL_TAKEN`, `ALREADY_MEMBER`)                                                                                                |
+| 410    | Invitation used or expired                                                                                                                |
+| 413    | File too large (`FILE_TOO_LARGE`)                                                                                                         |
+| 415    | File type not allowed (`UNSUPPORTED_FILE_TYPE`)                                                                                           |
+| 429    | Too many requests (`RATE_LIMITED`)                                                                                                        |
 
 ## Auth
 
-| Method | Path             | Body                        | Response                        |
-| ------ | ---------------- | --------------------------- | ------------------------------- |
-| POST   | `/auth/register` | `{ name, email, password }` | `201 { user }` + session cookie |
-| POST   | `/auth/login`    | `{ email, password }`       | `200 { user }` + session cookie |
-| POST   | `/auth/logout`   | none                        | `204`                           |
-| GET    | `/auth/me`       | none                        | `200 { user }`                  |
+| Method | Path                        | Body                        | Response                                  |
+| ------ | --------------------------- | --------------------------- | ----------------------------------------- |
+| POST   | `/auth/register`            | `{ name, email, password }` | `201 { user }` + session cookie           |
+| POST   | `/auth/login`               | `{ email, password }`       | `200 { user }` + session cookie           |
+| POST   | `/auth/logout`              | none                        | `204`                                     |
+| GET    | `/auth/me`                  | none                        | `200 { user }` (includes `emailVerified`) |
+| POST   | `/auth/verify-email`        | `{ token }`                 | `204`                                     |
+| POST   | `/auth/resend-verification` | none (logged in)            | `204`                                     |
+| POST   | `/auth/forgot-password`     | `{ email }`                 | `202` (always, see below)                 |
+| POST   | `/auth/reset-password`      | `{ token, password }`       | `204`, closes every session               |
+
+`/auth/forgot-password` answers the same way whether or not the email has an account.
+Tokens come from the links in the emails (`/verify-email#token=…`, `/reset-password#token=…`).
 
 ## Organizations and invitations
 
@@ -78,6 +87,23 @@ Every error has the same shape:
 | DELETE | `/tasks/:taskId`                                                    | `tasks:delete`  | `204`          |
 
 `dueDate` uses the format `YYYY-MM-DD`.
+
+## Files (under `/orgs/:orgId/projects/:projectId`)
+
+| Method | Path                               | Permission                       | Response                    |
+| ------ | ---------------------------------- | -------------------------------- | --------------------------- |
+| GET    | `/files`                           | can see project                  | `{ files }`                 |
+| POST   | `/files` (multipart, field `file`) | `files:upload` + can see project | `201 { file }`              |
+| GET    | `/files/:fileId/download`          | can see project                  | file bytes as an attachment |
+| DELETE | `/files/:fileId`                   | uploader, or `files:deleteAny`   | `204`                       |
+
+Allowed types: PNG, JPEG, WebP, GIF, PDF, ZIP, DOCX, XLSX, PPTX, TXT, CSV, Markdown (max 10 MB).
+
+## Audit log (under `/orgs/:orgId`)
+
+| Method | Path                  | Permission   | Response                                             |
+| ------ | --------------------- | ------------ | ---------------------------------------------------- |
+| GET    | `/audit-logs?cursor=` | `audit:read` | `{ entries, nextCursor }`, 50 per page, newest first |
 
 ## Health
 
