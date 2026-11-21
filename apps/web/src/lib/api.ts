@@ -34,6 +34,22 @@ export async function api<T>(path: string, options: { method?: Method; body?: un
     body: body === undefined ? undefined : JSON.stringify(body),
   });
 
+  return handleResponse<T>(res);
+}
+
+/** Uploads one file as multipart/form-data in the `file` field. */
+export async function apiUpload<T>(path: string, file: File) {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(`/api/v1${path}`, {
+    method: "POST",
+    credentials: "same-origin",
+    body: form,
+  });
+  return handleResponse<T>(res);
+}
+
+async function handleResponse<T>(res: Response): Promise<T> {
   if (res.status === 204) return undefined as T;
   const data: unknown = await res.json().catch(() => null);
   if (!res.ok) throw new ApiError(res.status, data as ApiErrorBody | null);

@@ -14,6 +14,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
+import { ProjectFiles } from "@/components/project-files";
 import { ProjectStatusBadge } from "@/components/project-status-badge";
 import {
   Badge,
@@ -152,6 +153,8 @@ export default function ProjectPage() {
           ))}
         </div>
       )}
+
+      {org && <ProjectFiles org={org} projectId={projectId} />}
     </div>
   );
 }

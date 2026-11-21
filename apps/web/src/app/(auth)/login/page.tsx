@@ -1,6 +1,6 @@
 "use client";
 
-import { loginSchema, type UserDto } from "@clienthub/shared";
+import { type CurrentUserDto, loginSchema } from "@clienthub/shared";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -28,7 +28,7 @@ function LoginForm() {
 
   const login = useMutation({
     mutationFn: (input: { email: string; password: string }) =>
-      api<{ user: UserDto }>("/auth/login", { method: "POST", body: input }),
+      api<{ user: CurrentUserDto }>("/auth/login", { method: "POST", body: input }),
     onSuccess: ({ user }) => {
       queryClient.clear();
       queryClient.setQueryData(keys.me, user);
@@ -69,6 +69,11 @@ function LoginForm() {
             aria-invalid={Boolean(errors.password)}
           />
         </Field>
+        <div className="-mt-2 text-right text-sm">
+          <Link href="/forgot-password" className="text-brand-600 hover:underline">
+            Forgot your password?
+          </Link>
+        </div>
         <ErrorMessage error={login.error} />
         <Button type="submit" className="w-full" loading={login.isPending}>
           Log in

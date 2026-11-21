@@ -174,8 +174,8 @@ function Invitations({ orgId }: { orgId: string }) {
     <Card className="p-5">
       <h2 className="font-semibold">Invite people</h2>
       <p className="mt-1 text-sm text-slate-500">
-        Share the invitation link with the person. It works only for their email and expires in 7
-        days.
+        We email the invitation link to the person. It works only for their (verified) email and
+        expires in 7 days.
       </p>
 
       <form onSubmit={onSubmit} className="mt-4 flex flex-wrap items-end gap-3" noValidate>
@@ -205,7 +205,8 @@ function Invitations({ orgId }: { orgId: string }) {
         <div className="mt-4 rounded-lg bg-brand-50 p-4 text-sm">
           <p className="font-medium text-brand-700">Invitation created for {created.email}</p>
           <p className="mt-1 text-slate-600">
-            Copy this link now. For security it is shown only once.
+            We sent it by email. You can also share this link yourself; for security it is shown
+            only once.
           </p>
           <div className="mt-3 flex gap-2">
             <Input readOnly value={inviteLink} aria-label="Invitation link" />

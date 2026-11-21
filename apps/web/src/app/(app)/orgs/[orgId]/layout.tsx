@@ -19,6 +19,7 @@ export default function OrganizationLayout({ children }: { children: ReactNode }
   const tabs = [
     { href: `/orgs/${orgId}`, label: "Projects", show: true },
     { href: `/orgs/${orgId}/members`, label: "Members", show: can(org.role, "members:read") },
+    { href: `/orgs/${orgId}/activity`, label: "Activity", show: can(org.role, "audit:read") },
   ];
 
   return (

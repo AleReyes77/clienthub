@@ -1,15 +1,17 @@
 "use client";
 
 import type {
+  AuditLogPageDto,
+  CurrentUserDto,
   InvitationDto,
   MemberDto,
   OrganizationDto,
   ProjectDto,
+  ProjectFileDto,
   Role,
   TaskDto,
-  UserDto,
 } from "@clienthub/shared";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { ApiError, api } from "./api";
 
 /** Query keys in one place so mutations can invalidate the right data. */
@@ -23,6 +25,9 @@ export const keys = {
     ["orgs", orgId, "projects", projectId, "tasks"] as const,
   members: (orgId: string) => ["orgs", orgId, "members"] as const,
   invitations: (orgId: string) => ["orgs", orgId, "invitations"] as const,
+  files: (orgId: string, projectId: string) =>
+    ["orgs", orgId, "projects", projectId, "files"] as const,
+  auditLogs: (orgId: string) => ["orgs", orgId, "audit-logs"] as const,
 };
 
 export function useMe() {
@@ -30,7 +35,7 @@ export function useMe() {
     queryKey: keys.me,
     queryFn: async () => {
       try {
-        return (await api<{ user: UserDto }>("/auth/me")).user;
+        return (await api<{ user: CurrentUserDto }>("/auth/me")).user;
       } catch (error) {
         if (error instanceof ApiError && error.status === 401) return null;
         throw error;
@@ -98,4 +103,25 @@ export function useInvitations(orgId: string, enabled = true) {
 
 export function membersWithRole(members: MemberDto[] | undefined, roles: Role[]) {
   return (members ?? []).filter((m) => roles.includes(m.role));
+}
+
+export function useFiles(orgId: string, projectId: string) {
+  return useQuery({
+    queryKey: keys.files(orgId, projectId),
+    queryFn: async () =>
+      (await api<{ files: ProjectFileDto[] }>(`/orgs/${orgId}/projects/${projectId}/files`)).files,
+  });
+}
+
+export function useAuditLogs(orgId: string, enabled = true) {
+  return useInfiniteQuery({
+    queryKey: keys.auditLogs(orgId),
+    queryFn: ({ pageParam }) =>
+      api<AuditLogPageDto>(
+        `/orgs/${orgId}/audit-logs${pageParam ? `?cursor=${encodeURIComponent(pageParam)}` : ""}`,
+      ),
+    initialPageParam: "",
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    enabled,
+  });
 }

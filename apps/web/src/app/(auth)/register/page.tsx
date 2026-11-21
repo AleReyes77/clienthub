@@ -1,6 +1,6 @@
 "use client";
 
-import { registerSchema, type UserDto } from "@clienthub/shared";
+import { type CurrentUserDto, registerSchema } from "@clienthub/shared";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -28,7 +28,7 @@ function RegisterForm() {
 
   const register = useMutation({
     mutationFn: (input: { name: string; email: string; password: string }) =>
-      api<{ user: UserDto }>("/auth/register", { method: "POST", body: input }),
+      api<{ user: CurrentUserDto }>("/auth/register", { method: "POST", body: input }),
     onSuccess: ({ user }) => {
       queryClient.clear();
       queryClient.setQueryData(keys.me, user);

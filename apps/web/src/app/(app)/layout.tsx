@@ -52,7 +52,36 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
+      {!user.emailVerified && <VerifyEmailBanner email={user.email} />}
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">{children}</main>
+    </div>
+  );
+}
+
+function VerifyEmailBanner({ email }: { email: string }) {
+  const resend = useMutation({
+    mutationFn: () => api("/auth/resend-verification", { method: "POST" }),
+  });
+
+  return (
+    <div className="border-b border-amber-200 bg-amber-50">
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-2.5 text-sm text-amber-800 sm:px-6">
+        <p>
+          Please verify your email (<strong>{email}</strong>). You need it to accept invitations.
+        </p>
+        {resend.isSuccess ? (
+          <span className="font-medium">Email sent. Check your inbox.</span>
+        ) : (
+          <Button
+            variant="secondary"
+            className="py-1 text-xs"
+            loading={resend.isPending}
+            onClick={() => resend.mutate()}
+          >
+            Resend email
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
